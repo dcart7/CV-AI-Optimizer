@@ -5,3 +5,5 @@ pydantic-settings
 sqlalchemy
 psycopg
 python-multipart
+openai
+google-genai

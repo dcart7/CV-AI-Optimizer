@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 
 from app.api.routes.analyze import router as analyze_router
+from app.api.routes.optimize import router as optimize_router
 from app.db.init_db import init_db
 
 app = FastAPI(title="Smart CV Optimizer API")
 
 app.include_router(analyze_router, prefix="/analyze", tags=["analyze"])
+app.include_router(optimize_router, tags=["optimize"])
 
 
 @app.on_event("startup")
