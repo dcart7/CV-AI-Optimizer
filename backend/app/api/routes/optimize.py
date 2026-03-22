@@ -14,7 +14,12 @@ def optimize_cv(payload: OptimizeRequest) -> OptimizeResponse:
             job_text=payload.job_text,
         )
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        detail = str(exc)
+        if detail.startswith("GEMINI_ERROR"):
+            raise HTTPException(status_code=503, detail=detail) from exc
+        raise HTTPException(status_code=500, detail=detail) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unexpected server error") from exc
 
     return OptimizeResponse(
         optimized_cv=result.optimized_cv,
