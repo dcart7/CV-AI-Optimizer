@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.optimize import OptimizeRequest, OptimizeResponse
-from app.services.llm import generate_optimized_cv
+from app.services.llm import LLMServiceError, generate_optimized_cv
 
 router = APIRouter()
 
@@ -13,11 +13,10 @@ def optimize_cv(payload: OptimizeRequest) -> OptimizeResponse:
             cv_text=payload.cv_text,
             job_text=payload.job_text,
         )
+    except LLMServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except RuntimeError as exc:
-        detail = str(exc)
-        if detail.startswith("GEMINI_ERROR"):
-            raise HTTPException(status_code=503, detail=detail) from exc
-        raise HTTPException(status_code=500, detail=detail) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unexpected server error") from exc
 
