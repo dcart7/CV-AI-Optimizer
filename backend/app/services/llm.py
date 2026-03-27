@@ -7,6 +7,7 @@ from google import genai
 from google.genai import errors as genai_errors
 
 from app.core.config import settings
+from app.schemas.keywords import KeywordExtractionResult
 from app.schemas.pipeline import CvAnalysis, JobAnalysis
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,27 @@ def analyze_job_text(job_text: str) -> JobAnalysis:
     )
     data = _generate_json_with_gemini(prompt)
     return JobAnalysis.model_validate(data)
+
+
+def extract_job_keywords(job_text: str) -> KeywordExtractionResult:
+    job_text = _truncate(job_text, settings.max_job_chars)
+    prompt = (
+        "You are a keyword extraction assistant for ATS matching.\n"
+        "Extract skills and requirements from the job description.\n"
+        "Return STRICT JSON only with the exact fields below.\n\n"
+        "JSON schema:\n"
+        "{\n"
+        '  "skills": string[],\n'
+        '  "requirements": string[]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Use concise phrases.\n"
+        "- Keep wording aligned to the posting.\n"
+        "- Do not invent facts.\n\n"
+        f"Job description:\n{job_text}\n"
+    )
+    data = _generate_json_with_gemini(prompt)
+    return KeywordExtractionResult.model_validate(data)
 
 
 def _generate_with_gemini(
