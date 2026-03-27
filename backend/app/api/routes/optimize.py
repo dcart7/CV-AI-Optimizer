@@ -12,6 +12,8 @@ def optimize_cv(payload: OptimizeRequest) -> OptimizeResponse:
         result = generate_optimized_cv(
             cv_text=payload.cv_text,
             job_text=payload.job_text,
+            cv_analysis=payload.cv_analysis,
+            job_analysis=payload.job_analysis,
         )
     except LLMServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
