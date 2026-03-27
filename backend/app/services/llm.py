@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from functools import lru_cache
+import json
 import logging
 
 from google import genai
 from google.genai import errors as genai_errors
 
 from app.core.config import settings
+from app.schemas.keywords import KeywordExtractionResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,27 @@ def generate_optimized_cv(cv_text: str, job_text: str) -> LLMResult:
     cv_text = _truncate(cv_text, settings.max_cv_chars)
     job_text = _truncate(job_text, settings.max_job_chars)
     return _generate_with_gemini(cv_text=cv_text, job_text=job_text)
+
+
+def extract_job_keywords(job_text: str) -> KeywordExtractionResult:
+    job_text = _truncate(job_text, settings.max_job_chars)
+    prompt = (
+        "You are a keyword extraction assistant for ATS matching.\n"
+        "Extract skills and requirements from the job description.\n"
+        "Return STRICT JSON only with the exact fields below.\n\n"
+        "JSON schema:\n"
+        "{\n"
+        '  "skills": string[],\n'
+        '  "requirements": string[]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Use concise phrases.\n"
+        "- Keep wording aligned to the posting.\n"
+        "- Do not invent facts.\n\n"
+        f"Job description:\n{job_text}\n"
+    )
+    data = _generate_json_with_gemini(prompt)
+    return KeywordExtractionResult.model_validate(data)
 
 
 def _generate_with_gemini(cv_text: str, job_text: str) -> LLMResult:
@@ -88,3 +111,41 @@ def _map_gemini_error_to_status(message: str) -> int:
     if "deadline" in lowered or "timeout" in lowered or "unavailable" in lowered:
         return 503
     return 502
+
+
+def _generate_json_with_gemini(prompt: str) -> dict:
+    if not settings.gemini_api_key:
+        raise LLMServiceError("GEMINI_API_KEY is not set", status_code=500)
+
+    client = _get_gemini_client()
+    try:
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+        )
+    except genai_errors.ClientError as exc:
+        message = str(exc)
+        status_code = _map_gemini_error_to_status(message)
+        logger.warning("Gemini client error: %s", message)
+        raise LLMServiceError(f"GEMINI_ERROR: {message}", status_code=status_code) from exc
+    except Exception as exc:
+        message = str(exc)
+        logger.exception("Gemini unexpected error: %s", message)
+        raise LLMServiceError(f"GEMINI_ERROR: {message}", status_code=503) from exc
+
+    raw_text = (getattr(response, "text", "") or "").strip()
+    if not raw_text:
+        raise LLMServiceError("GEMINI_ERROR: empty response", status_code=502)
+    return _extract_json(raw_text)
+
+
+def _extract_json(raw_text: str) -> dict:
+    text = raw_text.strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise LLMServiceError("GEMINI_ERROR: invalid JSON response", status_code=502)
+    try:
+        return json.loads(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise LLMServiceError("GEMINI_ERROR: invalid JSON response", status_code=502) from exc
