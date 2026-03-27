@@ -35,8 +35,17 @@ def _generate_with_gemini(cv_text: str, job_text: str) -> LLMResult:
     client = _get_gemini_client()
 
     prompt = (
-        "You are a CV optimization assistant. Improve the CV to match the job description. "
-        "Keep the language professional and concise.\n\n"
+        "You are an expert CV optimizer. Rewrite the CV to match the job description.\n"
+        "Goal: increase ATS match and hiring-manager clarity by 2–3x.\n\n"
+        "Rules:\n"
+        "- Use strong action verbs at the start of each bullet.\n"
+        "- Keep an ATS-friendly, keyword-rich style aligned to the job description.\n"
+        "- Use bullet points for experience and achievements.\n"
+        "- Keep structure clean and scannable (section headers + bullets).\n"
+        "- Preserve truthful content; do not invent skills, tools, or employers.\n"
+        "- Prefer quantified impact (%, $, time saved, scale, volume) when present.\n"
+        "- Remove fluff, tighten wording, keep it concise.\n"
+        "- Output ONLY the improved CV text (no explanations, no extra labels).\n\n"
         f"CV:\n{cv_text}\n\n"
         f"Job description:\n{job_text}\n\n"
         "Return the improved CV text."
