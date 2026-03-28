@@ -23,3 +23,5 @@ class OptimizeRequest(BaseModel):
 class OptimizeResponse(BaseModel):
     optimized_cv: str
     feedback: str
+    missing_skills: list[str] = []
+    recommendations: list[str] = []
